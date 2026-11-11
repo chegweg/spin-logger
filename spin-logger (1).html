@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spin Logger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F4; --panel:#FFFFFF; --ink:#13202B; --muted:#5D6B78; --line:#D3DAE1;
+  --hr:#D3263F; --pwr:#C27B00; --cad:#137F73; --go:#13202B; --go-ink:#FFFFFF;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0E1A24;--panel:#162633;--ink:#E7EDF2;--muted:#8FA0AF;--line:#26394A;
+    --hr:#FF5A70;--pwr:#F2B33D;--cad:#3CC4B2;--go:#E7EDF2;--go-ink:#0E1A24;color-scheme:dark;}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Barlow",system-ui,sans-serif;font-size:16px;line-height:1.45;padding:12px 14px 120px;max-width:560px;margin:0 auto}
+h1{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:700;font-size:1.6rem;margin:4px 0 12px}
+.num{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.sensors{display:flex;gap:8px;margin-bottom:12px}
+.sensor{flex:1;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:10px;font:600 0.95rem "Barlow",sans-serif;text-align:left;cursor:pointer}
+.sensor small{display:block;font-weight:400;color:var(--muted)}
+.sensor.on{border-color:var(--cad)}
+.sensor:focus-visible,.btn:focus-visible{outline:3px solid var(--cad);outline-offset:2px}
+.hero{background:var(--panel);border-radius:16px;padding:14px 16px;display:flex;align-items:baseline;justify-content:space-between;border-left:6px solid var(--hr)}
+.hero .num{font-size:5.5rem;color:var(--hr)}
+.hero .lab{color:var(--muted);text-align:right}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.tile{background:var(--panel);border-radius:10px;padding:10px 12px}
+.tile .num{font-size:2.9rem}
+.tile .lab{color:var(--muted);font-size:.9rem}
+.pwr .num{color:var(--pwr)} .cad .num{color:var(--cad)}
+.small .num{font-size:1.9rem}
+.grid3{grid-template-columns:1fr 1fr 1fr}
+.est{font-size:.75rem;color:var(--muted)}
+details{margin-top:14px;background:var(--panel);border-radius:10px;padding:10px 12px}
+summary{cursor:pointer;font-weight:600}
+label{display:block;margin-top:8px;font-size:.95rem}
+input[type=text],input[type=password]{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);margin-top:4px}
+.note{margin:4px 0;color:var(--muted)}
+#upSt a{color:var(--cad);font-weight:600}
+input[type=number]{width:90px;font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+#log{font:12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;color:var(--muted);margin-top:8px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;justify-content:center}
+.btn{flex:1;max-width:260px;border:0;border-radius:12px;padding:14px;font:700 1.15rem "Barlow Condensed",sans-serif;cursor:pointer;background:var(--go);color:var(--go-ink)}
+.btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn[hidden]{display:none}
+#msg{margin:10px 0 0;color:var(--muted);min-height:1.4em}
+#done{margin-top:14px;background:var(--panel);border-radius:10px;padding:12px}
+#done[hidden]{display:none}
+</style>
+</head>
+<body>
+<h1>Spin Logger</h1>
+
+<div class="sensors">
+  <button class="sensor" id="bikeBtn">Bike<small id="bikeSt">Tap to connect</small></button>
+  <button class="sensor" id="hrBtn">Heart rate<small id="hrSt">Tap to connect</small></button>
+</div>
+
+<div class="hero"><span class="num" id="vHr">--</span><span class="lab">bpm<br><span id="vHrZone"></span></span></div>
+
+<div class="grid">
+  <div class="tile pwr"><div class="num" id="vPwr">0</div><div class="lab">watts <span class="est">(estimated)</span></div></div>
+  <div class="tile cad"><div class="num" id="vCad">0</div><div class="lab">rpm</div></div>
+  <div class="tile"><div class="num" id="vRes">0</div><div class="lab">resistance</div></div>
+  <div class="tile"><div class="num" id="vTime">0:00</div><div class="lab">time</div></div>
+</div>
+<div class="grid grid3">
+  <div class="tile small"><div class="num" id="vSpd">0.0</div><div class="lab">km/h</div></div>
+  <div class="tile small"><div class="num" id="vDist">0.00</div><div class="lab">km</div></div>
+  <div class="tile small"><div class="num" id="vCal">0</div><div class="lab">kcal</div></div>
+</div>
+<p class="est" style="margin:4px 0 0">Watts, speed, distance and calories are estimated from cadence and resistance.</p>
+
+<p id="msg"></p>
+
+<div id="done" hidden>
+  <strong>Workout saved</strong>
+  <p id="sum" style="margin:6px 0 10px"></p>
+  <p id="upSt" class="note"></p>
+  <button class="btn" id="upBtn" hidden style="margin-bottom:8px">Upload to Strava</button>
+  <button class="btn alt" id="dlBtn">Download file for Garmin Connect</button>
+</div>
+
+<details id="stravaBox">
+  <summary>Strava</summary>
+  <p id="stvSt" class="note">Not connected</p>
+  <label>Client ID <input type="text" id="stvId" inputmode="numeric" autocomplete="off"></label>
+  <label>Client Secret <input type="password" id="stvSecret" autocomplete="off"></label>
+  <button class="btn alt" id="stvConnect" style="margin-top:10px;width:100%">Connect Strava</button>
+  <button class="btn alt" id="stvDisconnect" hidden style="margin-top:10px;width:100%">Disconnect Strava</button>
+</details>
+
+<details>
+  <summary>Settings</summary>
+  <label>Power calibration factor <input type="number" id="pf" step="0.05" min="0.3" max="3" value="1"></label>
+  <label>Speed calibration factor <input type="number" id="sf" step="0.05" min="0.3" max="3" value="1"></label>
+  <label>Max heart rate (for zones) <input type="number" id="maxHr" min="120" max="230" value="185"></label>
+  <label><input type="checkbox" id="allDev"> Show all Bluetooth devices when connecting the bike</label>
+</details>
+
+<details>
+  <summary>Bike data log</summary>
+  <div id="log">Raw packets from the bike appear here once it's connected.</div>
+</details>
+
+<div class="bar">
+  <button class="btn" id="startBtn">Start</button>
+  <button class="btn alt" id="pauseBtn" hidden>Pause</button>
+  <button class="btn alt" id="finishBtn" hidden>Finish</button>
+</div>
+
+<script>
+// Echelon proprietary BLE service (per the open-source QZ / qdomyos-zwift project)
+const ECH_SVC  ='0bf669f1-45f2-11e7-9598-0800200c9a66';
+const ECH_WRITE='0bf669f2-45f2-11e7-9598-0800200c9a66';
+const ECH_N1   ='0bf669f3-45f2-11e7-9598-0800200c9a66';
+const ECH_N2   ='0bf669f4-45f2-11e7-9598-0800200c9a66';
+
+const $=id=>document.getElementById(id);
+const S={hr:0,cad:0,res:0,pwr:0,lastCad:0,dist:0,kcal:0,secs:0,samples:[],rec:false,paused:false,start:null};
+let bikeDev,writeChar,pollTimer,pollCount=1,wakeLock=null,tcxText='';
+const seen={}; const logLines=[];
+
+function msg(t){$('msg').textContent=t}
+function hex(b){return Array.from(b,x=>x.toString(16).padStart(2,'0')).join(' ')}
+function log(line){logLines.push(line);if(logLines.length>40)logLines.shift();$('log').textContent=logLines.join('\n')}
+function withChecksum(arr){let s=0;arr.forEach(x=>s+=x);return new Uint8Array([...arr,s&0xff])}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+if(!navigator.bluetooth){msg('Bluetooth isn\u2019t available here. Open this page in Chrome on Android, over https.')}
+
+async function writeBike(bytes){
+  if(!writeChar)return;
+  try{
+    if(writeChar.properties.writeWithoutResponse) await writeChar.writeValueWithoutResponse(bytes);
+    else await writeChar.writeValueWithResponse(bytes);
+  }catch(e){log('write failed: '+e.message)}
+}
+
+function onBikeData(e){
+  const dv=e.target.value; const b=new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength);
+  const key=b[1]; const h=hex(b);
+  if(seen[key]!==h){seen[key]=h;log(h)}
+  if(b[0]!==0xf0)return;
+  if(b[1]===0xd2 && b.length>3){S.res=b[3]}
+  else if(b[1]===0xd1 && b.length>=11){
+    const c=(b[9]<<8)|b[10];
+    if(c<250){S.cad=c;S.lastCad=Date.now()}
+  }
+}
+
+async function connectBike(){
+  try{
+    const opts=$('allDev').checked
+      ?{acceptAllDevices:true,optionalServices:[ECH_SVC]}
+      :{filters:[{namePrefix:'ECH'},{services:[ECH_SVC]}],optionalServices:[ECH_SVC]};
+    bikeDev=await navigator.bluetooth.requestDevice(opts);
+    bikeDev.addEventListener('gattserverdisconnected',onBikeLost);
+    await setupBike();
+  }catch(e){$('bikeSt').textContent='Not connected';msg('Bike: '+e.message)}
+}
+
+async function setupBike(){
+  $('bikeSt').textContent='Connecting\u2026';
+  const server=await bikeDev.gatt.connect();
+  const svc=await server.getPrimaryService(ECH_SVC);
+  writeChar=await svc.getCharacteristic(ECH_WRITE);
+  for(const id of [ECH_N1,ECH_N2]){
+    try{const ch=await svc.getCharacteristic(id);ch.addEventListener('characteristicvaluechanged',onBikeData);await ch.startNotifications()}
+    catch(e){log('notify '+id.slice(0,8)+': '+e.message)}
+  }
+  // Wake-up sequence the bike expects before it streams data
+  await writeBike(new Uint8Array([0xf0,0xa1,0x00,0x91])); await sleep(300);
+  await writeBike(new Uint8Array([0xf0,0xa3,0x00,0x93])); await sleep(300);
+  await writeBike(new Uint8Array([0xf0,0xb0,0x01,0x01,0xa2]));
+  clearInterval(pollTimer);
+  pollTimer=setInterval(()=>{writeBike(withChecksum([0xf0,0xa0,0x01,pollCount]));pollCount=(pollCount%255)+1},2000);
+  $('bikeSt').textContent=bikeDev.name||'Connected';$('bikeBtn').classList.add('on');msg('');
+}
+
+async function onBikeLost(){
+  $('bikeBtn').classList.remove('on');$('bikeSt').textContent='Reconnecting\u2026';clearInterval(pollTimer);
+  for(let i=0;i<5;i++){try{await sleep(1500);await setupBike();return}catch(e){}}
+  $('bikeSt').textContent='Disconnected \u2014 tap to reconnect';
+}
+
+async function connectHr(){
+  try{
+    const dev=await navigator.bluetooth.requestDevice({filters:[{services:['heart_rate']}]});
+    const setup=async()=>{
+      const server=await dev.gatt.connect();
+      const ch=await (await server.getPrimaryService('heart_rate')).getCharacteristic('heart_rate_measurement');
+      ch.addEventListener('characteristicvaluechanged',e=>{const v=e.target.value;S.hr=(v.getUint8(0)&1)?v.getUint16(1,true):v.getUint8(1)});
+      await ch.startNotifications();
+      $('hrSt').textContent=dev.name||'Connected';$('hrBtn').classList.add('on');
+    };
+    dev.addEventListener('gattserverdisconnected',async()=>{
+      $('hrBtn').classList.remove('on');$('hrSt').textContent='Reconnecting\u2026';S.hr=0;
+      for(let i=0;i<5;i++){try{await sleep(1500);await setup();return}catch(e){}}
+      $('hrSt').textContent='Disconnected \u2014 tap to reconnect';
+    });
+    await setup();
+  }catch(e){$('hrSt').textContent='Not connected';msg('Heart rate: '+e.message)}
+}
+
+function estimatePower(cad,res){
+  if(cad<=0)return 0;
+  return Math.round(cad*(0.3+0.075*res)*(parseFloat($('pf').value)||1));
+}
+
+// Virtual gearing: each pedal turn moves you 2.1 m (a road wheel) times a gear ratio,
+// and resistance shifts you into a bigger gear (about 1.2 at resistance 0 up to 3.1 at 32).
+function estimateSpeed(cad,res){
+  if(cad<=0)return 0;
+  return cad/60*2.1*(1.2+0.06*res)*(parseFloat($('sf').value)||1); // m/s
+}
+
+function fmtTime(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;
+  return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')}
+
+function tick(){
+  if(Date.now()-S.lastCad>3000)S.cad=0;
+  S.pwr=estimatePower(S.cad,S.res);
+  const v=estimateSpeed(S.cad,S.res);
+  $('vSpd').textContent=(v*3.6).toFixed(1);
+  if(S.rec&&!S.paused){
+    S.dist+=v; S.kcal+=S.pwr/1000; S.secs++;
+    S.samples.push({t:new Date(),hr:S.hr,cad:S.cad,res:S.res,pwr:S.pwr,v,dist:S.dist});
+  }
+  $('vHr').textContent=S.hr||'--';
+  const mx=parseInt($('maxHr').value)||185;
+  $('vHrZone').textContent=S.hr?'zone '+Math.min(5,Math.max(1,Math.ceil((S.hr/mx-0.5)/0.1))):'';
+  $('vPwr').textContent=S.pwr;$('vCad').textContent=S.cad;$('vRes').textContent=S.res;
+  $('vTime').textContent=fmtTime(S.secs);$('vDist').textContent=(S.dist/1000).toFixed(2);$('vCal').textContent=Math.round(S.kcal);
+}
+setInterval(tick,1000);
+
+async function keepAwake(){try{wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(S.rec&&document.visibilityState==='visible')keepAwake()});
+
+function buildTcx(){
+  const sm=S.samples; if(!sm.length)return '';
+  const iso=d=>d.toISOString().replace(/\.\d{3}Z$/,'Z');
+  const hrs=sm.filter(s=>s.hr>0).map(s=>s.hr);
+  const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;
+  const pts=sm.map(s=>
+`<Trackpoint><Time>${iso(s.t)}</Time><DistanceMeters>${s.dist.toFixed(1)}</DistanceMeters>`+
+(s.hr>0?`<HeartRateBpm><Value>${s.hr}</Value></HeartRateBpm>`:'')+
+`<Cadence>${Math.min(254,s.cad)}</Cadence><Extensions><ns3:TPX><ns3:Speed>${s.v.toFixed(2)}</ns3:Speed><ns3:Watts>${s.pwr}</ns3:Watts></ns3:TPX></Extensions></Trackpoint>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
+<Activities><Activity Sport="Biking"><Id>${iso(S.start)}</Id>
+<Lap StartTime="${iso(S.start)}"><TotalTimeSeconds>${S.secs}</TotalTimeSeconds><DistanceMeters>${S.dist.toFixed(1)}</DistanceMeters><Calories>${Math.round(S.kcal)}</Calories>`+
+(hrs.length?`<AverageHeartRateBpm><Value>${avg(hrs)}</Value></AverageHeartRateBpm><MaximumHeartRateBpm><Value>${Math.max(...hrs)}</Value></MaximumHeartRateBpm>`:'')+
+`<Intensity>Active</Intensity><TriggerMethod>Manual</TriggerMethod><Track>
+${pts}
+</Track></Lap><Notes>Indoor ride on Echelon bike, recorded with Spin Logger</Notes></Activity></Activities></TrainingCenterDatabase>`;
+}
+
+// ---------- Strava ----------
+// Keys and tokens live only in this phone's browser storage, never in the page file.
+const ST=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
+const REDIRECT=location.origin+location.pathname;
+function stravaTokens(){try{return JSON.parse(ST('stv_tok')||'null')}catch(e){return null}}
+function renderStrava(){
+  const t=stravaTokens();
+  $('stvId').value=ST('stv_id')||'';$('stvSecret').value=ST('stv_secret')||'';
+  $('stvSt').textContent=t?'Connected as '+(t.name||'you')+'. Rides upload automatically when you finish.':'Not connected';
+  $('stvConnect').hidden=!!t;$('stvDisconnect').hidden=!t;
+}
+$('stvConnect').onclick=()=>{
+  const id=$('stvId').value.trim(),sec=$('stvSecret').value.trim();
+  if(!id||!sec){$('stvSt').textContent='Enter your Client ID and Client Secret first.';return}
+  if(S.rec){$('stvSt').textContent='Finish your ride first. Connecting opens Strava and leaves this page.';return}
+  ST('stv_id',id);ST('stv_secret',sec);
+  location.href='https://www.strava.com/oauth/authorize?'+new URLSearchParams({client_id:id,redirect_uri:REDIRECT,response_type:'code',approval_prompt:'auto',scope:'activity:write'});
+};
+$('stvDisconnect').onclick=()=>{ST('stv_tok',null);renderStrava()};
+
+async function tokenRequest(params){
+  const r=await fetch('https://www.strava.com/oauth/token',{method:'POST',body:new URLSearchParams({client_id:ST('stv_id'),client_secret:ST('stv_secret'),...params})});
+  const j=await r.json(); if(!r.ok)throw new Error(j.message||('HTTP '+r.status)); return j;
+}
+function saveTok(j,name){
+  const t={access:j.access_token,refresh:j.refresh_token,exp:j.expires_at,name:name||(j.athlete&&j.athlete.firstname)||''};
+  ST('stv_tok',JSON.stringify(t)); return t;
+}
+async function handleStravaReturn(){
+  const q=new URLSearchParams(location.search);
+  if(!q.has('code')&&!q.has('error'))return;
+  history.replaceState(null,'',REDIRECT); $('stravaBox').open=true;
+  if(q.get('error')){$('stvSt').textContent='Strava access was declined.';return}
+  if(!(q.get('scope')||'').includes('activity:write')){$('stvSt').textContent='Strava didn\u2019t grant upload permission. Tap Connect Strava again and leave the upload box ticked.';return}
+  try{saveTok(await tokenRequest({code:q.get('code'),grant_type:'authorization_code'}));renderStrava()}
+  catch(e){$('stvSt').textContent='Strava connection failed: '+e.message}
+}
+async function accessToken(){
+  let t=stravaTokens(); if(!t)throw new Error('Strava isn\u2019t connected');
+  if(t.exp*1000<Date.now()+120000)t=saveTok(await tokenRequest({grant_type:'refresh_token',refresh_token:t.refresh}),t.name);
+  return t.access;
+}
+async function uploadStrava(){
+  const set=t=>{$('upSt').textContent=t}; $('upBtn').hidden=true;
+  try{
+    set('Uploading to Strava\u2026');
+    const tok=await accessToken();
+    const fd=new FormData();
+    fd.append('file',new Blob([tcxText],{type:'application/xml'}),'ride.tcx');
+    fd.append('data_type','tcx'); fd.append('name','Indoor spin ride'); fd.append('trainer','1');
+    fd.append('external_id','spinlogger-'+S.start.getTime()+'.tcx');
+    let r=await fetch('https://www.strava.com/api/v3/uploads',{method:'POST',headers:{Authorization:'Bearer '+tok},body:fd});
+    let j=await r.json(); if(!r.ok)throw new Error(j.message||('HTTP '+r.status));
+    for(let i=0;i<20&&!j.activity_id&&!j.error;i++){
+      await sleep(2000); set('Strava is processing the ride\u2026');
+      r=await fetch('https://www.strava.com/api/v3/uploads/'+j.id,{headers:{Authorization:'Bearer '+tok}}); j=await r.json();
+    }
+    if(j.error)throw new Error(j.error);
+    if(!j.activity_id){set('Uploaded. Strava is still processing it, so check the Strava app in a minute.');return}
+    $('upSt').innerHTML='Uploaded to Strava. <a href="https://www.strava.com/activities/'+j.activity_id+'" target="_blank" rel="noopener">Open the activity</a>';
+  }catch(e){set('Strava upload failed: '+e.message);$('upBtn').hidden=false}
+}
+$('upBtn').onclick=uploadStrava;
+renderStrava(); handleStravaReturn();
+
+$('bikeBtn').onclick=connectBike;
+$('hrBtn').onclick=connectHr;
+$('startBtn').onclick=()=>{
+  Object.assign(S,{dist:0,kcal:0,secs:0,samples:[],rec:true,paused:false,start:new Date()});
+  $('done').hidden=true;$('startBtn').hidden=true;$('pauseBtn').hidden=false;$('finishBtn').hidden=false;
+  if(!bikeDev)msg('Recording. The bike isn\u2019t connected yet, so tap Bike to add it.');else msg('');
+  keepAwake();
+};
+$('pauseBtn').onclick=()=>{S.paused=!S.paused;$('pauseBtn').textContent=S.paused?'Resume':'Pause';msg(S.paused?'Paused':'')};
+$('finishBtn').onclick=()=>{
+  if(!confirm('Finish this workout?'))return;
+  S.rec=false;$('pauseBtn').hidden=true;$('finishBtn').hidden=true;$('startBtn').hidden=false;$('pauseBtn').textContent='Pause';
+  if(wakeLock){wakeLock.release();wakeLock=null}
+  tcxText=buildTcx();
+  if(!tcxText){msg('No data was recorded.');return}
+  const hrs=S.samples.filter(s=>s.hr>0).map(s=>s.hr);
+  const ap=Math.round(S.samples.reduce((a,s)=>a+s.pwr,0)/S.samples.length);
+  $('sum').textContent=`${fmtTime(S.secs)}, ${(S.dist/1000).toFixed(2)} km, avg ${ap} W`+(hrs.length?`, avg ${Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length)} bpm`:'');
+  $('done').hidden=false;msg('');
+  if(stravaTokens())uploadStrava();
+  else{$('upSt').textContent='Connect Strava under Strava below to upload rides automatically.';$('upBtn').hidden=true}
+};
+$('dlBtn').onclick=()=>{
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([tcxText],{type:'application/vnd.garmin.tcx+xml'}));
+  a.download='spin-'+S.start.toISOString().slice(0,16).replace(/[:T]/g,'-')+'.tcx';
+  a.click();
+};
+</script>
+</body>
+</html>
